@@ -113,7 +113,7 @@ while True:
         print(doc.page_content[:200])  # show first 200 chars
         print("------")
 
-    # Combine context for the LLM
+    # Combine context for the LLM.
     context = "\n\n".join([doc.page_content for doc in retrieved_docs])
 
     # LLM Prompt
