@@ -1,50 +1,77 @@
 import streamlit as st
 import requests
 
-BACKEND_URL = "http://127.0.0.1:8000"
+API_URL = "http://127.0.0.1:8000"
 
-if "history" not in st.session_state:
-    st.session_state.history = []
+# -----------------------------
+# Initialize Session Storage
+# -----------------------------
+if "qa_history" not in st.session_state:
+    st.session_state.qa_history = []
 
-st.title("📚 RAG Assistant")
+# -----------------------------
+# Page Title
+# -----------------------------
+st.title("📄 Document Q&A Assistant")
 
+# -----------------------------
+# PDF Upload Section
+# -----------------------------
+pdf_file = st.file_uploader("Select a PDF document", type=["pdf"])
 
-uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
-
-if uploaded_file:
-    files = {"file": (uploaded_file.name,
-                      uploaded_file.getvalue(), 
-                      "application/pdf")}
+if pdf_file is not None:
     
-    response = requests.post(f"{BACKEND_URL}/upload", files=files)
-    
-    if response.status_code == 200:
-        st.success(response.json()["message"])
-    else:
-        st.error(response.text)
-question = st.text_input("Ask a question")
+    upload_payload = {
+        "file": (
+            pdf_file.name,
+            pdf_file.getvalue(),
+            "application/pdf"
+        )
+    }
 
-if st.button("Ask") and question:  
-    response = requests.post(
-        f"{BACKEND_URL}/ask",
-        json={"question": question}
+    upload_response = requests.post(
+        f"{API_URL}/upload",
+        files=upload_payload
     )
-    
-    answer = response.json()["answer"]
-    
-   
-    st.write("### Answer")
-    st.write(answer)
-    st.session_state.history.insert(0, {
-        "question": question,
-        "answer": answer
+
+    if upload_response.status_code == 200:
+        st.success(upload_response.json().get("message"))
+    else:
+        st.error("Upload failed")
+
+# -----------------------------
+# Question Input
+# -----------------------------
+user_question = st.text_input("Enter your question about the document")
+
+if st.button("Get Answer") and user_question:
+
+    ask_response = requests.post(
+        f"{API_URL}/ask",
+        json={"question": user_question}
+    )
+
+    result = ask_response.json().get("answer")
+
+    # Display answer
+    st.markdown("### Response")
+    st.write(result)
+
+    # Save question and answer in history
+    st.session_state.qa_history.insert(0, {
+        "q": user_question,
+        "a": result
     })
-    
-    st.session_state.history = st.session_state.history[:10]
 
+    # Keep only last 10 entries
+    st.session_state.qa_history = st.session_state.qa_history[:10]
+
+# -----------------------------
+# History Section
+# -----------------------------
 st.divider()
-st.subheader(" Search History (Last 10)")
+st.subheader("Previous Questions (Last 10)")
 
-for item in st.session_state.history:
-    with st.expander(item["question"]):
-        st.write(item["answer"])
+for record in st.session_state.qa_history:
+    with st.expander(record["q"]):
+        st.write(record["a"])
